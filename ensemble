@@ -1,0 +1,79 @@
+################################--SER 599 Thesis--###############################
+#-------------------------------------------------------------------------------#
+#--Version 2.0/2.1 : Japa Swadia--#
+#--Classification of requirements statements using ensemble methods and RTextTools--#
+
+#Load data set for training
+#Read csv file containing Requirement statement and Requirement Category columns
+load_train <- read.csv("C:/Users/japas_000/Documents/Thesis/model/train_data_big.csv", header = TRUE, nrows = 1495)
+
+#Prepare data frame for training
+train_df <- as.data.frame(load_train[ , -1])
+
+#Install and load tm package for text mining
+library(tm)
+
+#Load required packages
+library(class) # KNN model
+library(SnowballC) # Stemming words
+library(e1071) # SVM and ensemble classification
+library(ggplot2) # Plotting data
+
+#Install and load RTextTools package
+library(RTextTools)
+
+# Create matrix of text terms and preprocess the statements
+doc_matrix <- create_matrix(train_df$Requirement.Statement, language="english", removeNumbers=TRUE,
+                            stemWords=TRUE)
+
+# Create container to hold the matrix, Category column and specify training and test data size
+container <- create_container(doc_matrix, as.numeric(factor(load_train$Requirement.Type)), trainSize=2:754, testSize=755:1495, virgin=FALSE)
+
+# Apply ensemble learning for training model
+svm.pred <- train_model(container,"SVM") #apply Support Vector Machine algorithm
+#glmnet.pred <- train_model(container, "GLMNET") # apply Generalized Linear Model Network algorithm
+maxent.pred <- train_model(container, "MAXENT") # apply Maximum Entropy algorithm
+boosting.pred <- train_model(container, "BOOSTING") # apply Boosting algorithm
+#bagging.pred <- train_model(container, "BAGGING") # apply Bagging algorithm
+rf.pred <- train_model(container, "RF") # apply Random Forests algorithm
+#nnet.pred <- train_model(container, "NNET") # apply Neural Network algorithm
+#tree.pred <- train_model(container, "TREE") # apply Decision Tree algorithm
+
+# Now classify test data using trained ensemble models
+svm.classify <- classify_model(container, svm.pred) # using Support Vector Machine algorithm
+glmnet.classify <- classify_model(container, glmnet.pred) # using Generalized Linear Model Network algorithm
+maxent.classify <- classify_model(container, maxent.pred) # using Maximum Entropy algorithm
+boosting.classify <- classify_model(container, boosting.pred) # using Boosting algorithm
+bagging.classify <- classify_model(container, bagging.pred) # using Bagging algorithm
+rf.classify <- classify_model(container, rf.pred) # using Random Forests algorithm
+nnet.classify <- classify_model(container, nnet.pred) # using Neural Network algorithm
+tree.classify <- classify_model(container, tree.pred) # using Decision Tree algorithm
+
+# Cross-validation
+SVM <- cross_validate(container, 5, "SVM") 
+GLMNET <- cross_validate(container, 5, "GLMNET") 
+MAXENT <- cross_validate(container, 5, "MAXENT") 
+BAGGING <- cross_validate(container, 5, "BAGGING") 
+BOOSTING <- cross_validate(container, 5, "BOOSTING")
+RF <- cross_validate(container, 5, "RF") 
+NNET <- cross_validate(container, 5, "NNET") 
+TREE <- cross_validate(container, 5, "TREE")
+
+# Create analytics from ensemble methods
+analytics <- create_analytics(container, cbind(svm.classify, glmnet.classify, maxent.classify, boosting.classify, 
+                                               bagging.classify, rf.classify, nnet.classify, tree.classify))
+
+# Get summary of analytics
+summary(analytics)
+
+# Get summaries and comparison of different algorithms
+topic_summary <- analytics@label_summary
+alg_summary <- analytics@algorithm_summary
+ens_summary <-analytics@ensemble_summary
+doc_summary <- analytics@document_summary
+
+# Produce csv files of predicted output
+write.csv(topic_summary, file="C:/Users/japas_000/Documents/Thesis/model/label_summary.csv")
+write.csv(alg_summary, file="C:/Users/japas_000/Documents/Thesis/model/algo_summary.csv")
+write.csv(ens_summary, file="C:/Users/japas_000/Documents/Thesis/model/ensemble_summary.csv")
+write.csv(doc_summary, file="C:/Users/japas_000/Documents/Thesis/model/doc_summary3.csv")
